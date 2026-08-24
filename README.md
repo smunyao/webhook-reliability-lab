@@ -4,6 +4,10 @@ A small TypeScript project for investigating webhook behaviour across an unrelia
 
 The lab delivers signed webhook events to a receiver and makes several common failure modes reproducible: temporary unavailability, duplicate delivery, invalid signatures and out-of-order events. It is intentionally a learning and testing artefact rather than a production webhook platform.
 
+## Project status
+
+Version 0.1 is a complete first investigation, not an application under continuous feature development. The repository will be maintained for compatibility and security where practical. New behaviour should be added only when it supports a specific reliability question or materially improves the evidence the lab provides.
+
 ## The problem
 
 A webhook sender usually knows that an HTTP request received a response. That response does not, by itself, prove that the complete customer workflow succeeded.
