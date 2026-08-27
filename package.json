@@ -1,7 +1,16 @@
 {
   "name": "webhook-reliability-lab",
   "version": "0.1.0",
+  "description": "A TypeScript lab for testing webhook retries, signatures, idempotency and event ordering.",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smunyao/webhook-reliability-lab.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",

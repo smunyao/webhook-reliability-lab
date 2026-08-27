@@ -46,6 +46,23 @@ WebhookDelivery -- signed HTTP POST --> Receiver server
 
 The HTTP server is deliberately thin. Delivery policy belongs to `WebhookDelivery`; event acceptance and state belong to `WebhookReceiver`. Keeping those responsibilities separate makes the core behaviour fast to test while retaining representative HTTP coverage.
 
+## Inspect the repository
+
+A useful path through the implementation is:
+
+1. Start with [`src/types.ts`](src/types.ts) for the event and delivery contracts.
+2. Read [`src/signatures.ts`](src/signatures.ts) for payload signing and timing-safe verification.
+3. Follow delivery and retry policy in [`src/delivery.ts`](src/delivery.ts).
+4. Review validation, idempotency and ordering in [`src/receiver.ts`](src/receiver.ts).
+5. See how the HTTP boundary is assembled in [`src/server.ts`](src/server.ts).
+6. Run [`src/scenario.ts`](src/scenario.ts) to observe retries and duplicate handling together.
+
+The tests mirror those responsibilities:
+
+- [`tests/signatures.spec.ts`](tests/signatures.spec.ts) covers trust at the payload boundary.
+- [`tests/receiver.spec.ts`](tests/receiver.spec.ts) covers validation, duplicate handling and event order.
+- [`tests/delivery.spec.ts`](tests/delivery.spec.ts) covers retry policy through a real local HTTP server.
+
 ## Run the project
 
 Requires Node.js 24 or later.
@@ -99,3 +116,11 @@ The lab rejects a sequence older than the latest processed sequence for an aggre
 - The lab does not claim production readiness or performance characteristics.
 
 These constraints keep the project small enough to inspect. They also identify realistic directions for further investigation without building speculative infrastructure into the first version.
+
+## Related work
+
+The lab is presented as inspectable engineering work in [Kitaka Munyao's portfolio](https://kitakamunyao.com/#engineering-work), alongside the professional context and quality-engineering principles that informed it.
+
+## Licence
+
+The source code is available under the [MIT License](LICENSE).
