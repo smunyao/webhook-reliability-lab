@@ -1,31 +1,26 @@
 # Webhook Reliability Lab
 
-A small TypeScript project for investigating webhook behaviour across an unreliable system boundary.
+A small TypeScript project for investigating signed webhook delivery across an unreliable system boundary.
 
-The lab delivers signed webhook events to a receiver and makes several common failure modes reproducible: temporary unavailability, duplicate delivery, invalid signatures and out-of-order events. It is intentionally a learning and testing artefact rather than a production webhook platform.
-
-## Project status
-
-Version 0.1 is a complete first investigation, not an application under continuous feature development. The repository will be maintained for compatibility and security where practical. New behaviour should be added only when it supports a specific reliability question or materially improves the evidence the lab provides.
-
-## The problem
-
-A webhook sender usually knows that an HTTP request received a response. That response does not, by itself, prove that the complete customer workflow succeeded.
-
-Temporary failures may require a retry. A retry may deliver the same event more than once. Events may arrive in a different order from the one in which they were created. A receiver also needs to distinguish a trusted payload from a request sent by somebody else.
-
-This project provides a controlled place to examine those behaviours and the evidence different tests can provide.
+The lab makes temporary failure, duplicate delivery, invalid signatures and out-of-order events reproducible. Version 0.1 is a complete first investigation and an inspectable testing artefact, not a production webhook platform.
 
 ## What the lab demonstrates
 
-- HMAC SHA-256 payload signing and timing-safe signature verification
+- HMAC SHA-256 payload signing and timing-safe verification
 - Retry of network failures, `429` responses and `5xx` responses
 - Exponential delay between attempts
 - Idempotent handling of duplicate event identifiers
 - Detection of stale event sequences for the same aggregate
 - Validation before processing
 - Real HTTP integration tests using an ephemeral local server
-- A visible delivery report for each attempt
+- A visible report for every delivery attempt
+
+## Technical foundation
+
+- TypeScript and Node.js
+- Vitest
+- Native Node.js HTTP and cryptography APIs
+- Real local HTTP integration testing
 
 ## Architecture
 
@@ -44,28 +39,24 @@ WebhookDelivery -- signed HTTP POST --> Receiver server
                                       - process event
 ```
 
-The HTTP server is deliberately thin. Delivery policy belongs to `WebhookDelivery`; event acceptance and state belong to `WebhookReceiver`. Keeping those responsibilities separate makes the core behaviour fast to test while retaining representative HTTP coverage.
+Delivery and retry policy belong to `WebhookDelivery`; event acceptance and state belong to `WebhookReceiver`. The HTTP server remains deliberately thin so the domain behaviour stays fast to test while representative workflows retain real HTTP coverage.
 
 ## Inspect the repository
 
-A useful path through the implementation is:
+| Path | Responsibility |
+| --- | --- |
+| [`src/types.ts`](src/types.ts) | Event and delivery contracts |
+| [`src/signatures.ts`](src/signatures.ts) | Payload signing and timing-safe verification |
+| [`src/delivery.ts`](src/delivery.ts) | Delivery attempts and retry policy |
+| [`src/receiver.ts`](src/receiver.ts) | Validation, idempotency and event ordering |
+| [`src/server.ts`](src/server.ts) | HTTP boundary |
+| [`src/scenario.ts`](src/scenario.ts) | Retries and duplicate handling working together |
 
-1. Start with [`src/types.ts`](src/types.ts) for the event and delivery contracts.
-2. Read [`src/signatures.ts`](src/signatures.ts) for payload signing and timing-safe verification.
-3. Follow delivery and retry policy in [`src/delivery.ts`](src/delivery.ts).
-4. Review validation, idempotency and ordering in [`src/receiver.ts`](src/receiver.ts).
-5. See how the HTTP boundary is assembled in [`src/server.ts`](src/server.ts).
-6. Run [`src/scenario.ts`](src/scenario.ts) to observe retries and duplicate handling together.
-
-The tests mirror those responsibilities:
-
-- [`tests/signatures.spec.ts`](tests/signatures.spec.ts) covers trust at the payload boundary.
-- [`tests/receiver.spec.ts`](tests/receiver.spec.ts) covers validation, duplicate handling and event order.
-- [`tests/delivery.spec.ts`](tests/delivery.spec.ts) covers retry policy through a real local HTTP server.
+The tests follow the same boundaries: signature trust in [`tests/signatures.spec.ts`](tests/signatures.spec.ts), receiver behaviour in [`tests/receiver.spec.ts`](tests/receiver.spec.ts), and retry policy through a local HTTP server in [`tests/delivery.spec.ts`](tests/delivery.spec.ts).
 
 ## Run the project
 
-Requires Node.js 24 or later.
+Node.js 24 or later is required.
 
 ```bash
 npm install
@@ -74,52 +65,38 @@ npm run build
 npm run scenario
 ```
 
-The scenario configures the receiver to fail twice before succeeding. It then delivers the same event again to demonstrate that the receiver acknowledges the duplicate without processing it twice.
+The scenario fails twice before succeeding, then delivers the same event again to show that the receiver acknowledges a duplicate without processing it twice.
 
 ## Testing strategy
 
-The suite uses different boundaries for different questions:
-
 - Signature tests exercise cryptographic behaviour without HTTP.
-- Receiver tests exercise validation, idempotency and ordering as deterministic domain behaviour.
+- Receiver tests keep validation, idempotency and ordering deterministic.
 - Delivery tests use a real local HTTP server to verify retries, response classification and the assembled workflow.
 
-The suite does not send traffic to a third-party service. Doing so would make results depend on an environment the project does not control and would not improve the evidence required for these scenarios.
+The suite deliberately avoids third-party traffic so results do not depend on an environment the project cannot control.
 
 ## Decisions and trade-offs
 
-### Sign the exact payload bytes
-
-The sender signs the same serialized payload that it transmits. The receiver verifies those bytes before parsing JSON. Parsing and re-serializing first could change whitespace or property ordering and reject an otherwise authentic request.
-
-### A duplicate is acknowledged successfully
-
-Returning a successful response prevents a sender from retrying an event the receiver has already processed. The outcome remains visible as `duplicate`, but the side effect is not repeated.
-
-### Only transient responses are retried
-
-Network errors, `429` and `5xx` responses may succeed later. Other `4xx` responses indicate that sending the same request again is unlikely to help, so delivery stops.
-
-### Out-of-order events are rejected
-
-The lab rejects a sequence older than the latest processed sequence for an aggregate. A production system might instead buffer, reconcile or safely ignore stale events. Rejection keeps that policy explicit; it is not presented as the only correct design.
+- **Sign the exact payload bytes.** Verifying before JSON parsing avoids changes to whitespace or property order invalidating an authentic request.
+- **Acknowledge duplicates successfully.** The receiver reports `duplicate` without repeating the side effect or inviting another retry.
+- **Retry only transient failures.** Network errors, `429` and `5xx` responses may succeed later; other `4xx` responses stop delivery.
+- **Reject stale event sequences.** A production system might buffer or reconcile them, but rejection keeps this lab's ordering policy explicit.
 
 ## Deliberate limitations
 
 - State is held in memory and is lost when the process exits.
-- The sender and receiver share one configured secret; there is no key rotation.
+- The sender and receiver share one secret; there is no key rotation.
 - Retries have no jitter and do not honour `Retry-After`.
-- Delivery requests do not currently enforce a timeout.
-- Events use one simplified schema and one fictional appointment workflow.
+- Delivery requests do not enforce a timeout.
+- Events use one simplified schema and a fictional appointment workflow.
 - There is no queue, dead-letter store or replay interface.
-- The sequence policy assumes one ordered stream per aggregate.
-- The lab does not claim production readiness or performance characteristics.
+- The lab makes no production-readiness or performance claims.
 
-These constraints keep the project small enough to inspect. They also identify realistic directions for further investigation without building speculative infrastructure into the first version.
+These constraints keep the project small enough to inspect while leaving realistic directions for future investigation.
 
 ## Related work
 
-The lab is presented as inspectable engineering work in [Kitaka Munyao's portfolio](https://kitakamunyao.com/#engineering-work), alongside the professional context and quality-engineering principles that informed it.
+The lab is presented as inspectable engineering work in [Kitaka Munyao's portfolio](https://kitakamunyao.com/#engineering-work).
 
 ## Licence
 
