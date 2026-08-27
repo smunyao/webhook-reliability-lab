@@ -51,6 +51,7 @@ Delivery and retry policy belong to `WebhookDelivery`; event acceptance and stat
 | [`src/receiver.ts`](src/receiver.ts) | Validation, idempotency and event ordering |
 | [`src/server.ts`](src/server.ts) | HTTP boundary |
 | [`src/scenario.ts`](src/scenario.ts) | Retries and duplicate handling working together |
+| [`docs/test-strategy.md`](docs/test-strategy.md) | Risk model, coverage decisions, exploratory charters and residual uncertainty |
 
 The tests follow the same boundaries: signature trust in [`tests/signatures.spec.ts`](tests/signatures.spec.ts), receiver behaviour in [`tests/receiver.spec.ts`](tests/receiver.spec.ts), and retry policy through a local HTTP server in [`tests/delivery.spec.ts`](tests/delivery.spec.ts).
 
@@ -68,6 +69,8 @@ npm run scenario
 The scenario fails twice before succeeding, then delivers the same event again to show that the receiver acknowledges a duplicate without processing it twice.
 
 ## Testing strategy
+
+The full [test strategy](docs/test-strategy.md) connects system risks to the implemented checks, exploratory charters and deliberate limits of the lab.
 
 - Signature tests exercise cryptographic behaviour without HTTP.
 - Receiver tests keep validation, idempotency and ordering deterministic.
